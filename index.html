@@ -1,0 +1,891 @@
+<!doctype html>
+<html lang="fr" class="h-full">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Calculateur de Rémunération des Élus Municipaux</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/_sdk/element_sdk.js"></script>
+  <style>
+    body {
+      box-sizing: border-box;
+    }
+    
+    :root {
+      --bleu-fonce: #111F49;
+      --blanc: #FFFFFF;
+      --bleu-clair: #38B6FF;
+      --bleu-ciel: #F0F7FB;
+      --bleu-ciel-2: #96DDF8;
+    }
+    
+    .calculator-card {
+      transition: all 0.3s ease;
+    }
+    .calculator-card:hover {
+      transform: translateY(-2px);
+    }
+    .result-animation {
+      animation: slideIn 0.5s ease-out;
+    }
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
+    .bg-primary { background-color: var(--bleu-fonce); }
+    .bg-secondary { background-color: var(--bleu-clair); }
+    .bg-light { background-color: var(--bleu-ciel); }
+    .text-primary { color: var(--bleu-fonce); }
+    .text-secondary { color: var(--bleu-clair); }
+    .hover-secondary:hover { background-color: var(--bleu-clair); }
+    
+    .result-card {
+      border-left: 4px solid var(--bleu-clair);
+    }
+    
+    .slider {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 8px;
+      border-radius: 5px;
+      background: #d3d3d3;
+      outline: none;
+      opacity: 0.7;
+      transition: opacity 0.2s;
+    }
+    
+    .slider:hover {
+      opacity: 1;
+    }
+    
+    .slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #38B6FF;
+      cursor: pointer;
+    }
+    
+    .slider::-moz-range-thumb {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #38B6FF;
+      cursor: pointer;
+    }
+  </style>
+  <style>@view-transition { navigation: auto; }</style>
+  <script src="/_sdk/data_sdk.js" type="text/javascript"></script>
+ </head>
+ <body class="h-full bg-light font-sans">
+  <div class="max-w-4xl mx-auto px-4 py-8">
+   <section>
+    <div class="bg-white rounded-xl shadow-lg p-8 calculator-card">
+     <div class="mb-8">
+      <h2 id="main-title" class="text-3xl font-bold text-primary mb-4">Calculateur de Rémunération des Élus Municipaux</h2>
+      <p id="description-text" class="text-lg text-gray-600">Calculez les indemnités brutes mensuelles du maire et des adjoints selon la population de votre commune.</p>
+     </div>
+     <form onsubmit="calculateRemuneration(event)" class="space-y-6">
+      <div><label for="population" class="block text-lg font-medium text-gray-700 mb-3"> Population municipale (nombre d'habitants) </label> <input type="number" id="population" name="population" min="1" class="w-full px-6 py-4 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Ex: 15000" required>
+      </div><button type="submit" id="submit-button" class="w-full bg-secondary text-white py-4 px-8 rounded-lg font-medium text-lg hover-secondary transition-colors"> Calculer les indemnités </button>
+     </form>
+     <div id="advanced-mode-toggle" class="mt-4 text-center hidden"><button id="toggle-advanced-btn" onclick="toggleAdvancedMode()" class="px-6 py-2 rounded-lg font-medium text-sm transition-all border-2 border-blue-400 text-blue-600 hover:bg-blue-50"> Basculer vers le mode avancé </button>
+     </div>
+     <div id="result-remuneration" class="mt-8 hidden"></div>
+    </div>
+   </section>
+  </div>
+  <script>
+    const defaultConfig = {
+      main_title: "Calculateur de Rémunération des Élus Municipaux",
+      description_text: "Calculez les indemnités brutes mensuelles du maire et des adjoints selon la population de votre commune.",
+      button_text: "Calculer les indemnités",
+      background_color: "#F0F7FB",
+      card_color: "#FFFFFF",
+      primary_color: "#111F49",
+      accent_color: "#38B6FF",
+      text_color: "#4B5563",
+      font_family: "system-ui",
+      font_size: 16
+    };
+
+    const remunerationData = {
+      maire: [
+        { max: 499, taux: 25.5, montant: 1048.18 },
+        { max: 999, taux: 40.3, montant: 1656.54 },
+        { max: 3499, taux: 51.6, montant: 2121.03 },
+        { max: 9999, taux: 55, montant: 2260.79 },
+        { max: 19999, taux: 65, montant: 2671.84 },
+        { max: 49999, taux: 90, montant: 3699.47 },
+        { max: 99999, taux: 110, montant: 4521.58 },
+        { max: Infinity, taux: 145, montant: 5960.26 }
+      ],
+      adjoint: [
+        { max: 499, taux: 9.9, montant: 406.94 },
+        { max: 999, taux: 10.7, montant: 439.83 },
+        { max: 3499, taux: 19.8, montant: 813.88 },
+        { max: 9999, taux: 22, montant: 904.32 },
+        { max: 19999, taux: 27.5, montant: 1130.39 },
+        { max: 49999, taux: 33, montant: 1356.47 },
+        { max: 99999, taux: 44, montant: 1808.63 },
+        { max: 199999, taux: 66, montant: 2712.95 },
+        { max: Infinity, taux: 72.5, montant: 2980.13 }
+      ]
+    };
+
+    const conseillersTranches = [
+      { max: 99, nb: 7 },
+      { max: 499, nb: 11 },
+      { max: 1499, nb: 15 },
+      { max: 2499, nb: 19 },
+      { max: 3499, nb: 23 },
+      { max: 4999, nb: 27 },
+      { max: 9999, nb: 29 },
+      { max: 19999, nb: 33 },
+      { max: 29999, nb: 35 },
+      { max: 39999, nb: 39 },
+      { max: 49999, nb: 43 },
+      { max: 59999, nb: 45 },
+      { max: 79999, nb: 49 },
+      { max: 99999, nb: 53 },
+      { max: 149999, nb: 55 },
+      { max: 199999, nb: 59 },
+      { max: 249999, nb: 61 },
+      { max: 299999, nb: 65 },
+      { max: Infinity, nb: 69 }
+    ];
+
+    const indemniteConseiller = 246.63;
+    
+    let advancedMode = false;
+    let currentData = null;
+
+    function calculateRemuneration(event) {
+      event.preventDefault();
+      
+      const population = parseInt(document.getElementById('population').value);
+      
+      // Calcul du nombre de conseillers
+      let nbConseillers = 7;
+      for (let tranche of conseillersTranches) {
+        if (population <= tranche.max) {
+          nbConseillers = tranche.nb;
+          break;
+        }
+      }
+      
+      // Calcul du nombre maximum d'adjoints (30% tronqué)
+      const nbMaxAdjoints = Math.floor(nbConseillers * 0.30);
+      
+      // Calcul pour le maire
+      const tranchesMaire = remunerationData.maire;
+      let resultMaire = null;
+      for (let tranche of tranchesMaire) {
+        if (population <= tranche.max) {
+          resultMaire = tranche;
+          break;
+        }
+      }
+      
+      // Calcul pour les adjoints
+      const tranchesAdjoint = remunerationData.adjoint;
+      let resultAdjoint = null;
+      for (let tranche of tranchesAdjoint) {
+        if (population <= tranche.max) {
+          resultAdjoint = tranche;
+          break;
+        }
+      }
+      
+      // Indemnité des conseillers municipaux
+      const indemniteConseillerMunicipal = population >= 100000 ? indemniteConseiller : 0;
+      
+      // Stocker les données pour le mode avancé
+      currentData = {
+        population: population,
+        nbConseillers: nbConseillers,
+        nbMaxAdjoints: nbMaxAdjoints,
+        nbAdjointsActuel: nbMaxAdjoints,
+        indemniteMaileLegale: resultMaire.montant,
+        indemniteAdjointLegale: resultAdjoint.montant,
+        indemniteConseillerLegale: indemniteConseillerMunicipal,
+        indemniteMaileActuelle: resultMaire.montant,
+        indemniteAdjointActuelle: resultAdjoint.montant,
+        indemniteConseillerActuelle: indemniteConseillerMunicipal,
+        majoration: 0,
+        majorationType: null
+      };
+      
+      // Afficher le bouton mode avancé
+      document.getElementById('advanced-mode-toggle').classList.remove('hidden');
+      
+      // Réinitialiser le mode avancé
+      advancedMode = false;
+      document.getElementById('toggle-advanced-btn').textContent = 'Basculer vers le mode avancé';
+      document.getElementById('toggle-advanced-btn').classList.remove('bg-blue-200', 'border-blue-600');
+      document.getElementById('toggle-advanced-btn').classList.add('border-blue-400', 'text-blue-600');
+      
+      displayResults();
+    }
+    
+    function toggleAdvancedMode() {
+      advancedMode = !advancedMode;
+      const btn = document.getElementById('toggle-advanced-btn');
+      
+      if (advancedMode) {
+        btn.textContent = 'Revenir au mode simple';
+        btn.classList.remove('border-blue-400', 'text-blue-600');
+        btn.classList.add('bg-blue-200', 'border-blue-600', 'text-blue-800');
+      } else {
+        btn.textContent = 'Basculer vers le mode avancé';
+        btn.classList.remove('bg-blue-200', 'border-blue-600', 'text-blue-800');
+        btn.classList.add('border-blue-400', 'text-blue-600');
+        
+        // Réinitialiser les valeurs
+        currentData.nbAdjointsActuel = currentData.nbMaxAdjoints;
+        currentData.indemniteMaileActuelle = currentData.indemniteMaileLegale;
+        currentData.indemniteAdjointActuelle = currentData.indemniteAdjointLegale;
+        currentData.indemniteConseillerActuelle = currentData.indemniteConseillerLegale;
+        currentData.majoration = 0;
+        currentData.majorationType = null;
+      }
+      
+      displayResults();
+    }
+    
+    function updateNbAdjoints(value) {
+      currentData.nbAdjointsActuel = parseInt(value);
+      recalculateAndUpdateDisplay();
+    }
+    
+    function updateIndemniteMaile(value) {
+      const newValue = parseFloat(value);
+      currentData.indemniteMaileActuelle = newValue;
+      
+      // Si l'indemnité du maire baisse, l'indemnité des adjoints ne peut pas être supérieure
+      if (currentData.indemniteAdjointActuelle > currentData.indemniteMaileActuelle) {
+        currentData.indemniteAdjointActuelle = currentData.indemniteMaileActuelle;
+      }
+      
+      recalculateAndUpdateDisplay();
+    }
+    
+    function updateIndemniteAdjoint(value) {
+      const newValue = parseFloat(value);
+      
+      // Calculer le maximum autorisé pour ne pas dépasser l'enveloppe
+      const enveloppeMaximaleGlobale = currentData.indemniteMaileLegale + 
+                                        (currentData.indemniteAdjointLegale * currentData.nbMaxAdjoints) + 
+                                        (currentData.indemniteConseillerLegale * (currentData.nbConseillers - 1 - currentData.nbMaxAdjoints));
+      
+      const espaceDisponiblePourAdjoints = enveloppeMaximaleGlobale - currentData.indemniteMaileActuelle - 
+                                            (currentData.indemniteConseillerActuelle * (currentData.nbConseillers - 1 - currentData.nbAdjointsActuel));
+      
+      const maxParAdjoint = espaceDisponiblePourAdjoints / currentData.nbAdjointsActuel;
+      
+      // Limiter la valeur au maximum calculé
+      currentData.indemniteAdjointActuelle = Math.min(newValue, maxParAdjoint);
+      recalculateAndUpdateDisplay();
+    }
+    
+    function updateIndemniteConseiller(value) {
+      const newValue = parseFloat(value);
+      currentData.indemniteConseillerActuelle = newValue;
+      recalculateAndUpdateDisplay();
+    }
+    
+    function selectMajoration(type, percentage) {
+      if (currentData.majorationType === type) {
+        currentData.majoration = 0;
+        currentData.majorationType = null;
+      } else {
+        currentData.majoration = percentage;
+        currentData.majorationType = type;
+      }
+      displayResults();
+    }
+    
+    function recalculateAndUpdateDisplay() {
+      // Calcul de l'enveloppe maximale globale
+      const nbMaxAdjoints = currentData.nbMaxAdjoints;
+      const nbConseillersMunicipaux = currentData.nbConseillers - 1 - currentData.nbAdjointsActuel;
+      
+      // L'enveloppe maximale = maire légal + adjoints max légaux + conseillers légaux
+      const enveloppeMaximaleGlobale = currentData.indemniteMaileLegale + 
+                                        (currentData.indemniteAdjointLegale * nbMaxAdjoints) + 
+                                        (currentData.indemniteConseillerLegale * (currentData.nbConseillers - 1 - nbMaxAdjoints));
+      
+      // Calcul de l'espace disponible pour les conseillers
+      const espaceDisponible = enveloppeMaximaleGlobale - 
+                               (currentData.indemniteMaileActuelle + (currentData.indemniteAdjointActuelle * currentData.nbAdjointsActuel));
+      
+      // Maximum par conseiller = MIN(246.63€, espace disponible / nombre de conseillers)
+      let maxParConseiller = 246.63;
+      if (nbConseillersMunicipaux > 0) {
+        maxParConseiller = Math.min(246.63, espaceDisponible / nbConseillersMunicipaux);
+      }
+      
+      // Limiter l'indemnité des conseillers au maximum calculé
+      if (currentData.indemniteConseillerActuelle > maxParConseiller) {
+        currentData.indemniteConseillerActuelle = Math.max(0, maxParConseiller);
+      }
+      
+      // Mise à jour sélective uniquement des valeurs affichées
+      updateDisplayedValues(maxParConseiller, espaceDisponible);
+    }
+    
+    function updateDisplayedValues(maxParConseiller, espaceDisponible) {
+      const population = currentData.population;
+      const nbAdjointsActuel = currentData.nbAdjointsActuel;
+      const nbConseillersMunicipaux = currentData.nbConseillers - 1 - nbAdjointsActuel;
+      const majCoef = 1 + (currentData.majoration / 100);
+      
+      const indemniteMaileFinale = currentData.indemniteMaileActuelle * majCoef;
+      const indemniteAdjointFinale = currentData.indemniteAdjointActuelle * majCoef;
+      const indemniteConseillerFinale = currentData.indemniteConseillerActuelle * majCoef;
+      
+      // Calcul de l'enveloppe maximale
+      const nbMaxAdjoints = currentData.nbMaxAdjoints;
+      let enveloppeMaximale = currentData.indemniteMaileLegale + (currentData.indemniteAdjointLegale * nbMaxAdjoints);
+      if (population >= 100000) {
+        const nbConseillersMunicipauxMax = currentData.nbConseillers - 1 - nbMaxAdjoints;
+        enveloppeMaximale += indemniteConseiller * nbConseillersMunicipauxMax;
+      }
+      
+      let budgetUtilise = indemniteMaileFinale + (indemniteAdjointFinale * nbAdjointsActuel);
+      budgetUtilise += indemniteConseillerFinale * nbConseillersMunicipaux;
+      
+      // Mise à jour des valeurs affichées dans les curseurs
+      const maireValueDisplay = document.querySelector('[data-display="maire-value"]');
+      if (maireValueDisplay) {
+        maireValueDisplay.textContent = indemniteMaileFinale.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+      }
+      
+      const adjointValueDisplay = document.querySelector('[data-display="adjoint-value"]');
+      if (adjointValueDisplay) {
+        adjointValueDisplay.textContent = indemniteAdjointFinale.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+      }
+      
+      // Calculer le maximum pour les adjoints sans dépasser l'enveloppe
+      const enveloppeMaximaleGlobale = currentData.indemniteMaileLegale + 
+                                        (currentData.indemniteAdjointLegale * currentData.nbMaxAdjoints) + 
+                                        (currentData.indemniteConseillerLegale * (currentData.nbConseillers - 1 - currentData.nbMaxAdjoints));
+      
+      const espaceDisponiblePourAdjoints = enveloppeMaximaleGlobale - currentData.indemniteMaileActuelle - 
+                                            (currentData.indemniteConseillerActuelle * nbConseillersMunicipaux);
+      
+      const maxParAdjoint = Math.min(currentData.indemniteMaileActuelle, espaceDisponiblePourAdjoints / nbAdjointsActuel);
+      
+      const adjointMaxDisplay = document.querySelector('[data-display="adjoint-max"]');
+      if (adjointMaxDisplay) {
+        adjointMaxDisplay.textContent = 'Max: ' + maxParAdjoint.toFixed(2) + ' €' + (maxParAdjoint < currentData.indemniteMaileActuelle ? ' (limité par enveloppe)' : '');
+      }
+      
+      const adjointSlider = document.querySelector('[data-slider="adjoint"]');
+      if (adjointSlider) {
+        adjointSlider.max = maxParAdjoint;
+        adjointSlider.value = currentData.indemniteAdjointActuelle;
+      }
+      
+      const nbAdjointsDisplay = document.querySelector('[data-display="nb-adjoints"]');
+      if (nbAdjointsDisplay) {
+        nbAdjointsDisplay.textContent = nbAdjointsActuel;
+      }
+      
+      const conseillerValueDisplay = document.querySelector('[data-display="conseiller-value"]');
+      if (conseillerValueDisplay) {
+        conseillerValueDisplay.textContent = indemniteConseillerFinale.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+        conseillerValueDisplay.className = ⁠ font-bold text-lg ${indemniteConseillerFinale === 0 ? 'text-gray-400' : 'text-blue-900'} ⁠;
+      }
+      
+      const conseillerNbDisplay = document.querySelector('[data-display="conseiller-nb"]');
+      if (conseillerNbDisplay) {
+        conseillerNbDisplay.textContent = ⁠ Conseiller municipal (${nbConseillersMunicipaux}) ⁠;
+      }
+      
+      const conseillerMaxDisplay = document.querySelector('[data-display="conseiller-max"]');
+      if (conseillerMaxDisplay) {
+        conseillerMaxDisplay.textContent = 'Max: ' + maxParConseiller.toFixed(2) + ' € ' + (maxParConseiller < 246.63 ? '(limité par enveloppe)' : '');
+      }
+      
+      const conseillerSlider = document.querySelector('[data-slider="conseiller"]');
+      if (conseillerSlider) {
+        conseillerSlider.max = maxParConseiller;
+        conseillerSlider.value = currentData.indemniteConseillerActuelle;
+      }
+      
+      const espaceDispoDisplay = document.querySelector('[data-display="espace-dispo"]');
+      if (espaceDispoDisplay && espaceDisponible > 0 && population < 100000) {
+        espaceDispoDisplay.textContent = ⁠ Espace disponible dans l'enveloppe : ${espaceDisponible.toFixed(2)} € ⁠;
+        espaceDispoDisplay.classList.remove('hidden');
+      } else if (espaceDispoDisplay) {
+        espaceDispoDisplay.classList.add('hidden');
+      }
+      
+      // Mise à jour du budget total
+      const budgetSansMAj = budgetUtilise / majCoef;
+      const budgetUtiliseElem = document.querySelector('[data-display="budget-utilise"]');
+      if (budgetUtiliseElem) {
+        budgetUtiliseElem.textContent = budgetSansMAj.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+      }
+      
+      const majorationElem = document.querySelector('[data-display="majoration"]');
+      if (majorationElem) {
+        const majorationMontant = budgetUtilise - budgetSansMAj;
+        majorationElem.textContent = (majorationMontant > 0 ? '+' : '') + majorationMontant.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+      }
+      
+      const budgetTotalElem = document.querySelector('[data-display="budget-total"]');
+      if (budgetTotalElem) {
+        budgetTotalElem.textContent = budgetUtilise.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+      }
+      
+      const budgetAnnuelElem = document.querySelector('[data-display="budget-annuel"]');
+      if (budgetAnnuelElem) {
+        budgetAnnuelElem.textContent = 'Coût annuel pour la commune : ' + (budgetUtilise * 12).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+      }
+      
+      // Mise à jour des dépenses au-delà de l'enveloppe
+      const depassementContainer = document.querySelector('[data-display="depassement-container"]');
+      if (depassementContainer) {
+        const difference = budgetUtilise - enveloppeMaximale;
+        const isEconomie = difference <= 0;
+        
+        depassementContainer.className = ⁠ mt-4 p-3 ${isEconomie ? 'bg-green-50' : 'bg-red-50'} rounded-lg border-t pt-4 ⁠;
+        
+        const depassementLabel = document.querySelector('[data-display="depassement-label"]');
+        if (depassementLabel) {
+          depassementLabel.className = ⁠ text-sm font-medium ${isEconomie ? 'text-green-800' : 'text-red-800'} ⁠;
+          depassementLabel.textContent = isEconomie ? 'Économie sur l\'enveloppe :' : 'Dépenses au-delà de l\'enveloppe :';
+        }
+        
+        const depassementMontant = document.querySelector('[data-display="depassement-montant"]');
+        if (depassementMontant) {
+          depassementMontant.className = ⁠ text-lg font-bold ${isEconomie ? 'text-green-700' : 'text-red-700'} ⁠;
+          depassementMontant.textContent = (isEconomie ? '-' : '+') + Math.abs(difference).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+        }
+        
+        const depassementDesc = document.querySelector('[data-display="depassement-desc"]');
+        if (depassementDesc) {
+          depassementDesc.className = ⁠ text-xs ${isEconomie ? 'text-green-600' : 'text-red-600'} mt-1 ⁠;
+          depassementDesc.textContent = isEconomie ? 'Économie mensuelle' : 'Dépassement mensuel';
+        }
+      }
+    }
+    
+    function displayResults() {
+      if (!currentData) return;
+      
+      const population = currentData.population;
+      const nbConseillers = currentData.nbConseillers;
+      const nbMaxAdjoints = currentData.nbMaxAdjoints;
+      const nbAdjointsActuel = currentData.nbAdjointsActuel;
+      const nbConseillersMunicipaux = nbConseillers - 1 - nbAdjointsActuel;
+      
+      // Calcul de l'enveloppe maximale
+      let enveloppeMaximale = currentData.indemniteMaileLegale + (currentData.indemniteAdjointLegale * nbMaxAdjoints);
+      
+      if (population >= 100000) {
+        const nbConseillersMunicipauxMax = nbConseillers - 1 - nbMaxAdjoints;
+        enveloppeMaximale += indemniteConseiller * nbConseillersMunicipauxMax;
+      }
+      
+      // Calcul de l'espace disponible pour les conseillers
+      const espaceDisponible = enveloppeMaximale - 
+                               (currentData.indemniteMaileActuelle + (currentData.indemniteAdjointActuelle * nbAdjointsActuel));
+      
+      // Maximum par conseiller
+      let maxParConseiller = 246.63;
+      if (nbConseillersMunicipaux > 0) {
+        maxParConseiller = Math.min(246.63, Math.max(0, espaceDisponible / nbConseillersMunicipaux));
+      }
+      
+      // Calcul du budget utilisé (avec majorations)
+      const majCoef = 1 + (currentData.majoration / 100);
+      const indemniteMaileFinale = currentData.indemniteMaileActuelle * majCoef;
+      const indemniteAdjointFinale = currentData.indemniteAdjointActuelle * majCoef;
+      const indemniteConseillerFinale = currentData.indemniteConseillerActuelle * majCoef;
+      
+      let budgetUtilise = indemniteMaileFinale + (indemniteAdjointFinale * nbAdjointsActuel);
+      
+      const nbConseillersMunicipauxFinal = nbConseillers - 1 - nbAdjointsActuel;
+      budgetUtilise += indemniteConseillerFinale * nbConseillersMunicipauxFinal;
+      
+      const resultDiv = document.getElementById('result-remuneration');
+      
+      resultDiv.innerHTML = `
+        <div class="result-animation space-y-6">
+          
+          <!-- Onglet 1: Informations de la commune -->
+          <div class="bg-blue-50 border-l-4 border-blue-500 rounded-lg p-6 result-card">
+            <h3 class="text-xl font-semibold text-blue-900 mb-4">Informations de la commune</h3>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div class="bg-white rounded-lg p-4 shadow-sm text-center">
+                <p class="text-sm text-gray-600 mb-1">Population</p>
+                <p class="text-2xl font-bold text-blue-900">${population.toLocaleString()}</p>
+              </div>
+              
+              <div class="bg-white rounded-lg p-4 shadow-sm text-center">
+                <p class="text-sm text-gray-600 mb-1">Conseillers municipaux</p>
+                <p class="text-2xl font-bold text-blue-900">${nbConseillers}</p>
+              </div>
+              
+              <div class="bg-white rounded-lg p-4 shadow-sm text-center">
+                <p class="text-sm text-gray-600 mb-1">Adjoints maximum</p>
+                <p class="text-2xl font-bold text-blue-900">${nbMaxAdjoints}</p>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Onglet 2: Enveloppe maximale -->
+          <div class="bg-blue-50 border-l-4 border-blue-500 rounded-lg p-6 result-card">
+            <h3 class="text-xl font-semibold text-blue-900 mb-4">Enveloppe maximale du conseil municipal</h3>
+            
+            <div class="bg-white rounded-lg p-6 shadow-sm text-center">
+              <p class="text-2xl font-bold text-blue-900 mb-2">
+                ${enveloppeMaximale.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+              </p>
+              <p class="text-sm text-gray-600 mb-1">Montant total mensuel des indemnités légales</p>
+              <p class="text-xs text-gray-500">(${(enveloppeMaximale * 12).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} € annuel)</p>
+            </div>
+          </div>
+          
+          <!-- Onglet 3: Indemnités -->
+          <div class="bg-blue-50 border-l-4 border-blue-500 rounded-lg p-6 result-card">
+            <h3 class="text-xl font-semibold text-blue-900 mb-4">Indemnités brutes mensuelles${currentData.majoration > 0 ? ' (avec majoration)' : ''}</h3>
+            
+            <div class="bg-white rounded-lg p-6 shadow-sm">
+              ${!advancedMode ? `
+              <!-- Mode simple : affichage en liste -->
+              <div class="space-y-6">
+                <!-- Maire -->
+                <div class="border-b pb-4">
+                  <div class="flex justify-between items-center">
+                    <span class="text-gray-800 font-medium">Maire</span>
+                    <span class="font-bold text-blue-900 text-lg">
+                      ${indemniteMaileFinale.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                    </span>
+                  </div>
+                </div>
+                
+                <!-- Adjoints -->
+                <div class="border-b pb-4">
+                  <div class="flex justify-between items-center">
+                    <span class="text-gray-800 font-medium">Adjoint au maire</span>
+                    <span class="font-bold text-blue-900 text-lg">
+                      ${indemniteAdjointFinale.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                    </span>
+                  </div>
+                </div>
+                
+                <!-- Conseillers -->
+                <div>
+                  <div class="flex justify-between items-center">
+                    <span class="text-gray-800 font-medium">Conseiller municipal</span>
+                    <div class="text-right">
+                      <span class="font-bold ${indemniteConseillerFinale === 0 ? 'text-gray-400' : 'text-blue-900'} text-lg">
+                        ${indemniteConseillerFinale.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                      </span>
+                      ${indemniteConseillerFinale === 0 && population < 100000 ? '<div class="text-xs text-gray-500 mt-1">Indemnité possible si baisse du maire ou des adjoints</div>' : ''}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              ` : `
+              <!-- Mode avancé : affichage avec curseurs -->
+              <div class="space-y-6">
+                <!-- Maire -->
+                <div class="border-b pb-4">
+                  <div class="flex justify-between items-center mb-2">
+                    <span class="text-gray-800 font-medium">Maire</span>
+                    <span class="font-bold text-blue-900 text-lg" data-display="maire-value">
+                      ${indemniteMaileFinale.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                    </span>
+                  </div>
+                  <div class="mt-3">
+                    <input type="range" min="0" max="${currentData.indemniteMaileLegale}" step="0.01" 
+                      value="${currentData.indemniteMaileActuelle}" 
+                      class="slider" data-slider="maire" oninput="updateIndemniteMaile(this.value)">
+                    <div class="flex justify-between text-xs text-gray-500 mt-1">
+                      <span>0 €</span>
+                      <span>Max: ${currentData.indemniteMaileLegale.toFixed(2)} €</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- Adjoints -->
+                <div class="border-b pb-4">
+                  <div class="flex justify-between items-center mb-2">
+                    <span class="text-gray-800 font-medium">Adjoint au maire</span>
+                    <span class="font-bold text-blue-900 text-lg" data-display="adjoint-value">
+                      ${indemniteAdjointFinale.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                    </span>
+                  </div>
+                  <div class="mt-3 space-y-3">
+                    <div>
+                      <label class="block text-xs text-gray-600 mb-1">Nombre d'adjoints : <span class="font-bold" data-display="nb-adjoints">${nbAdjointsActuel}</span></label>
+                      <input type="range" min="1" max="${nbMaxAdjoints}" value="${nbAdjointsActuel}" 
+                        class="slider" data-slider="nb-adjoints" oninput="updateNbAdjoints(this.value)">
+                      <div class="flex justify-between text-xs text-gray-500 mt-1">
+                        <span>1</span>
+                        <span>${nbMaxAdjoints}</span>
+                      </div>
+                    </div>
+                    <div>
+                      <label class="block text-xs text-gray-600 mb-1">Indemnité par adjoint</label>
+                      <input type="range" min="0" max="${(() => {
+                        const enveloppeMax = currentData.indemniteMaileLegale + 
+                                             (currentData.indemniteAdjointLegale * currentData.nbMaxAdjoints) + 
+                                             (currentData.indemniteConseillerLegale * (currentData.nbConseillers - 1 - currentData.nbMaxAdjoints));
+                        const espaceAdjoint = enveloppeMax - currentData.indemniteMaileActuelle - 
+                                              (currentData.indemniteConseillerActuelle * nbConseillersMunicipaux);
+                        return Math.min(currentData.indemniteMaileActuelle, espaceAdjoint / nbAdjointsActuel);
+                      })()}" step="0.01" 
+                        value="${currentData.indemniteAdjointActuelle}" 
+                        class="slider" data-slider="adjoint" oninput="updateIndemniteAdjoint(this.value)">
+                      <div class="flex justify-between text-xs text-gray-500 mt-1">
+                        <span>0 €</span>
+                        <span data-display="adjoint-max">Max: ${(() => {
+                          const enveloppeMax = currentData.indemniteMaileLegale + 
+                                               (currentData.indemniteAdjointLegale * currentData.nbMaxAdjoints) + 
+                                               (currentData.indemniteConseillerLegale * (currentData.nbConseillers - 1 - currentData.nbMaxAdjoints));
+                          const espaceAdjoint = enveloppeMax - currentData.indemniteMaileActuelle - 
+                                                (currentData.indemniteConseillerActuelle * nbConseillersMunicipaux);
+                          const maxAdj = Math.min(currentData.indemniteMaileActuelle, espaceAdjoint / nbAdjointsActuel);
+                          return maxAdj.toFixed(2) + ' €' + (maxAdj < currentData.indemniteMaileActuelle ? ' (limité par enveloppe)' : '');
+                        })()}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- Conseillers -->
+                <div>
+                  <div class="flex justify-between items-center mb-2">
+                    <span class="text-gray-800 font-medium" data-display="conseiller-nb">Conseiller municipal (${nbConseillersMunicipaux})</span>
+                    <span class="font-bold ${indemniteConseillerFinale === 0 ? 'text-gray-400' : 'text-blue-900'} text-lg" data-display="conseiller-value">
+                      ${indemniteConseillerFinale.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                    </span>
+                  </div>
+                  <div class="mt-3">
+                    <input type="range" min="0" max="${maxParConseiller}" step="0.01" 
+                      value="${currentData.indemniteConseillerActuelle}" 
+                      class="slider" data-slider="conseiller" oninput="updateIndemniteConseiller(this.value)">
+                    <div class="flex justify-between text-xs text-gray-500 mt-1">
+                      <span>0 €</span>
+                      <span data-display="conseiller-max">Max: ${maxParConseiller.toFixed(2)} € ${maxParConseiller < 246.63 ? '(limité par enveloppe)' : ''}</span>
+                    </div>
+                  </div>
+                  <p class="text-xs text-green-600 mt-2 ${espaceDisponible > 0 && population < 100000 ? '' : 'hidden'}" data-display="espace-dispo">Espace disponible dans l'enveloppe : ${espaceDisponible.toFixed(2)} €</p>
+                </div>
+              </div>
+              `}
+            </div>
+          </div>
+          
+          ${advancedMode ? `
+          <!-- Onglet 4: Paramètres avancés -->
+          <div class="bg-yellow-50 border-l-4 border-yellow-500 rounded-lg p-6 result-card">
+            <h3 class="text-xl font-semibold text-yellow-900 mb-4">Paramètres avancés</h3>
+            
+            <div class="space-y-4">
+              <!-- Majorations -->
+              <div class="bg-white rounded-lg p-4 shadow-sm">
+                <label class="block text-sm font-medium text-gray-700 mb-3">Majorations (hors enveloppe)</label>
+                <div class="space-y-2">
+                  <label class="flex items-center cursor-pointer">
+                    <input type="checkbox" ${currentData.majorationType === 'dept' ? 'checked' : ''} 
+                      onchange="selectMajoration('dept', 25)" class="mr-2">
+                    <span class="text-sm">Chef-lieu de département (+25%)</span>
+                  </label>
+                  <label class="flex items-center cursor-pointer">
+                    <input type="checkbox" ${currentData.majorationType === 'arrond' ? 'checked' : ''} 
+                      onchange="selectMajoration('arrond', 20)" class="mr-2">
+                    <span class="text-sm">Chef-lieu d'arrondissement (+20%)</span>
+                  </label>
+                  <label class="flex items-center cursor-pointer">
+                    <input type="checkbox" ${currentData.majorationType === 'canton' ? 'checked' : ''} 
+                      onchange="selectMajoration('canton', 15)" class="mr-2">
+                    <span class="text-sm">Chef-lieu de canton (+15%)</span>
+                  </label>
+                  <label class="flex items-center cursor-pointer">
+                    <input type="checkbox" ${currentData.majorationType === 'tourisme' ? 'checked' : ''} 
+                      onchange="selectMajoration('tourisme', ${population < 5000 ? 50 : 25})" class="mr-2">
+                    <span class="text-sm">Commune station de tourisme (+${population < 5000 ? 50 : 25}%)</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Onglet 5: Budget total -->
+          <div class="bg-green-50 border-l-4 border-green-500 rounded-lg p-6 result-card">
+            <h3 class="text-xl font-semibold text-green-900 mb-4">Budget total de fonctionnement</h3>
+            
+            <div class="bg-white rounded-lg p-6 shadow-sm">
+              <div class="space-y-4">
+                <div class="flex justify-between items-center border-b pb-3">
+                  <span class="text-gray-700">Enveloppe maximale</span>
+                  <span class="font-semibold text-gray-900">${enveloppeMaximale.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</span>
+                </div>
+                
+                <div class="flex justify-between items-center border-b pb-3">
+                  <span class="text-gray-700">Enveloppe utilisée</span>
+                  <span class="font-semibold text-gray-900" data-display="budget-utilise">${(budgetUtilise / majCoef).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</span>
+                </div>
+                
+                <div class="flex justify-between items-center border-b pb-3">
+                  <span class="text-gray-700">Majorations${currentData.majoration > 0 ? ` (+${currentData.majoration}%)` : ''}</span>
+                  <span class="font-semibold ${currentData.majoration > 0 ? 'text-green-700' : 'text-gray-900'}" data-display="majoration">
+                    ${currentData.majoration > 0 ? '+' : ''}${(budgetUtilise - (budgetUtilise / majCoef)).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                  </span>
+                </div>
+                
+                <div class="flex justify-between items-center pt-2 border-t">
+                  <span class="text-lg font-bold text-gray-900">Budget total mensuel</span>
+                  <span class="text-2xl font-bold text-green-700" data-display="budget-total">${budgetUtilise.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</span>
+                </div>
+                
+                <div class="text-center">
+                  <p class="text-xs text-gray-500" data-display="budget-annuel">Coût annuel pour la commune : ${(budgetUtilise * 12).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</p>
+                </div>
+                
+                <div class="mt-4 p-3 ${budgetUtilise <= enveloppeMaximale ? 'bg-green-50' : 'bg-red-50'} rounded-lg border-t pt-4" data-display="depassement-container">
+                  <div class="flex justify-between items-center">
+                    <span class="text-sm font-medium ${budgetUtilise <= enveloppeMaximale ? 'text-green-800' : 'text-red-800'}" data-display="depassement-label">
+                      ${budgetUtilise <= enveloppeMaximale ? 'Économie sur l\'enveloppe' : 'Dépenses au-delà de l\'enveloppe'} :
+                    </span>
+                    <span class="text-lg font-bold ${budgetUtilise <= enveloppeMaximale ? 'text-green-700' : 'text-red-700'}" data-display="depassement-montant">
+                      ${budgetUtilise <= enveloppeMaximale ? '-' : '+'}${Math.abs(budgetUtilise - enveloppeMaximale).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                    </span>
+                  </div>
+                  <p class="text-xs ${budgetUtilise <= enveloppeMaximale ? 'text-green-600' : 'text-red-600'} mt-1" data-display="depassement-desc">
+                    ${budgetUtilise <= enveloppeMaximale ? 'Économie mensuelle' : 'Dépassement mensuel'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+          ` : ''}
+        </div>
+      `;
+      resultDiv.classList.remove('hidden');
+    }
+
+    async function onConfigChange(config) {
+      const customFont = config.font_family || defaultConfig.font_family;
+      const baseSize = config.font_size || defaultConfig.font_size;
+      const baseFontStack = 'system-ui, -apple-system, sans-serif';
+      
+      document.body.style.fontFamily = ⁠ ${customFont}, ${baseFontStack} ⁠;
+      document.body.style.backgroundColor = config.background_color || defaultConfig.background_color;
+      
+      const mainTitle = document.getElementById('main-title');
+      mainTitle.textContent = config.main_title || defaultConfig.main_title;
+      mainTitle.style.color = config.primary_color || defaultConfig.primary_color;
+      mainTitle.style.fontSize = ⁠ ${baseSize * 1.875}px ⁠;
+      
+      const description = document.getElementById('description-text');
+      description.textContent = config.description_text || defaultConfig.description_text;
+      description.style.color = config.text_color || defaultConfig.text_color;
+      description.style.fontSize = ⁠ ${baseSize * 1.125}px ⁠;
+      
+      const button = document.getElementById('submit-button');
+      button.textContent = config.button_text || defaultConfig.button_text;
+      button.style.backgroundColor = config.accent_color || defaultConfig.accent_color;
+      button.style.fontSize = ⁠ ${baseSize * 1.125}px ⁠;
+      
+      const card = document.querySelector('.calculator-card');
+      card.style.backgroundColor = config.card_color || defaultConfig.card_color;
+      
+      const labels = document.querySelectorAll('label');
+      labels.forEach(label => {
+        label.style.color = config.primary_color || defaultConfig.primary_color;
+        label.style.fontSize = ⁠ ${baseSize * 1.125}px ⁠;
+      });
+      
+      const inputs = document.querySelectorAll('input, select');
+      inputs.forEach(input => {
+        input.style.fontSize = ⁠ ${baseSize * 1.125}px ⁠;
+      });
+    }
+
+    if (window.elementSdk) {
+      window.elementSdk.init({
+        defaultConfig,
+        onConfigChange,
+        mapToCapabilities: (config) => ({
+          recolorables: [
+            {
+              get: () => config.background_color || defaultConfig.background_color,
+              set: (value) => {
+                config.background_color = value;
+                window.elementSdk.setConfig({ background_color: value });
+              }
+            },
+            {
+              get: () => config.card_color || defaultConfig.card_color,
+              set: (value) => {
+                config.card_color = value;
+                window.elementSdk.setConfig({ card_color: value });
+              }
+            },
+            {
+              get: () => config.primary_color || defaultConfig.primary_color,
+              set: (value) => {
+                config.primary_color = value;
+                window.elementSdk.setConfig({ primary_color: value });
+              }
+            },
+            {
+              get: () => config.accent_color || defaultConfig.accent_color,
+              set: (value) => {
+                config.accent_color = value;
+                window.elementSdk.setConfig({ accent_color: value });
+              }
+            },
+            {
+              get: () => config.text_color || defaultConfig.text_color,
+              set: (value) => {
+                config.text_color = value;
+                window.elementSdk.setConfig({ text_color: value });
+              }
+            }
+          ],
+          borderables: [],
+          fontEditable: {
+            get: () => config.font_family || defaultConfig.font_family,
+            set: (value) => {
+              config.font_family = value;
+              window.elementSdk.setConfig({ font_family: value });
+            }
+          },
+          fontSizeable: {
+            get: () => config.font_size || defaultConfig.font_size,
+            set: (value) => {
+              config.font_size = value;
+              window.elementSdk.setConfig({ font_size: value });
+            }
+          }
+        }),
+        mapToEditPanelValues: (config) => new Map([
+          ["main_title", config.main_title || defaultConfig.main_title],
+          ["description_text", config.description_text || defaultConfig.description_text],
+          ["button_text", config.button_text || defaultConfig.button_text]
+        ])
+      });
+    }
+  </script>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'99c71f3513afbb52',t:'MTc2Mjc5NDE5Mi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
